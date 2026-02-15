@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession, signOut } from "next-auth/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,8 @@ import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { 
   Car, Users, DollarSign, TrendingUp, Plus, Search, Edit, Trash2, 
-  Phone, Mail, MapPin, BarChart3, ShoppingCart, ArrowLeft, Home, Settings
+  Phone, Mail, MapPin, BarChart3, ShoppingCart, ArrowLeft, Home, Settings,
+  LogOut, User
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -111,6 +113,7 @@ const formatDate = (dateString: string) => {
 };
 
 export default function AdminDashboard() {
+  const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [cars, setCars] = useState<CarData[]>([]);
@@ -127,6 +130,13 @@ export default function AdminDashboard() {
   const [editingCustomer, setEditingCustomer] = useState<CustomerData | null>(null);
   const [selectedCarForSale, setSelectedCarForSale] = useState<CarData | null>(null);
   const [selectedCustomerForContact, setSelectedCustomerForContact] = useState<CustomerData | null>(null);
+
+  // Check authentication
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      window.location.href = "/login";
+    }
+  }, [status]);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -183,8 +193,14 @@ export default function AdminDashboard() {
   }, [fetchDashboard, fetchCars, fetchCustomers, fetchSales]);
 
   useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+    if (status === "authenticated") {
+      fetchAllData();
+    }
+  }, [fetchAllData, status]);
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/login" });
+  };
 
   const handleCarSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -324,15 +340,21 @@ export default function AdminDashboard() {
     }
   };
 
-  if (loading) {
+  // Loading state
+  if (status === "loading" || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">กำลังโหลดข้อมูล...</p>
+          <p className="text-muted-foreground">กำลังโหลด...</p>
         </div>
       </div>
     );
+  }
+
+  // Not authenticated
+  if (status === "unauthenticated") {
+    return null;
   }
 
   return (
@@ -349,9 +371,16 @@ export default function AdminDashboard() {
               <div className="p-2 bg-primary/10 rounded-lg"><Settings className="w-5 h-5 text-primary" /></div>
               <div><h1 className="text-lg font-bold">Admin Dashboard</h1><p className="text-xs text-muted-foreground">ระบบจัดการรถมือสอง</p></div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 text-sm">
+                <User className="w-4 h-4" />
+                <span>{session?.user?.name || session?.user?.email}</span>
+              </div>
               <Link href="/"><Button variant="outline" size="sm" className="gap-2"><Home className="w-4 h-4" />หน้าร้าน</Button></Link>
-              <Badge variant="outline" className="gap-1">Admin</Badge>
+              <Button variant="outline" size="sm" className="gap-2" onClick={handleLogout}>
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">ออกจากระบบ</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -469,7 +498,7 @@ export default function AdminDashboard() {
       <footer className="border-t mt-auto">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-            <p className="text-sm text-muted-foreground">© 2025 ระบบจัดการรถมือสอง - Admin Dashboard</p>
+            <p className="text-sm text-muted-foreground">© 2025 ระบบจัดการรถมือสอง</p>
             <Link href="/" className="text-sm text-primary hover:underline">กลับหน้าร้าน</Link>
           </div>
         </div>

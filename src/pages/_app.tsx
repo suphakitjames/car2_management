@@ -1,13 +1,11 @@
-import type { AppType } from "next/app"
-import { Providers } from "@/components/Providers"
+import type { AppProps } from "next/app"
+import { SessionProvider } from "next-auth/react"
 import "@/app/globals.css"
 
-const App: AppType = ({ Component, pageProps }) => {
+export default function App({ Component, pageProps }: AppProps) {
   return (
-    <Providers>
+    <SessionProvider session={pageProps.session}>
       <Component {...pageProps} />
-    </Providers>
+    </SessionProvider>
   )
 }
-
-export default App
