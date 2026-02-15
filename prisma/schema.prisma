@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ข้อมูลรถยนต์
+model Car {
+  id          String   @id @default(cuid())
+  brand       String
+  model       String
+  year        Int
+  color       String
+  mileage     Int
+  engineSize  Float?
+  fuelType    String?
+  transmission String?
+  plateNumber String?
+  vin         String?
+  costPrice   Float
+  sellingPrice Float
+  description String?
+  images      String?
+  status      String   @default("AVAILABLE")  // AVAILABLE, RESERVED, SOLD, MAINTENANCE
+  condition   String?
+  purchaseDate DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  sale        Sale?
+}
+
+// ข้อมูลลูกค้า
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  address   String?
+  idCard    String?
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  contacts  Contact[]
+  sales     Sale[]
+}
+
+// ประวัติการติดต่อ
+model Contact {
+  id          String   @id @default(cuid())
+  customerId  String
+  contactType String
+  note        String
+  followUpDate DateTime?
+  createdAt   DateTime @default(now())
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+// บันทึกการขาย
+model Sale {
+  id          String   @id @default(cuid())
+  carId       String   @unique
+  customerId  String
+  salePrice   Float
+  profit      Float
+  paymentType String?
+  note        String?
+  saleDate    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  car         Car      @relation(fields: [carId], references: [id])
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+// ค่าใช้จ่าย
+model Expense {
+  id          String   @id @default(cuid())
+  category    String
+  description String
+  amount      Float
+  expenseDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
