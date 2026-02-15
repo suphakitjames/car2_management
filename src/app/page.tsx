@@ -67,6 +67,15 @@ const brandEmojis: Record<string, string> = {
   Mercedes: "🚗",
 };
 
+// Image gallery state hook
+function useImageGallery() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const next = (total: number) => setCurrentIndex((prev) => (prev + 1) % total);
+  const prev = (total: number) => setCurrentIndex((prev) => (prev - 1 + total) % total);
+  const reset = () => setCurrentIndex(0);
+  return { currentIndex, next, prev, reset, setCurrentIndex };
+}
+
 export default function CustomerShowroom() {
   const [cars, setCars] = useState<CarData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +89,7 @@ export default function CustomerShowroom() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [reserveDialogOpen, setReserveDialogOpen] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const gallery = useImageGallery();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Form
@@ -188,8 +198,19 @@ export default function CustomerShowroom() {
   // Open detail dialog
   const openDetailDialog = (car: CarData) => {
     setSelectedCar(car);
+    gallery.reset();
     setDetailDialogOpen(true);
   };
+
+  // แปลง images string เป็น array
+const getCarImages = (images: string | null | undefined): string[] => {
+  if (!images) return [];
+  try {
+    return JSON.parse(images);
+  } catch {
+    return [];
+  }
+};
 
   if (loading) {
     return (
@@ -348,9 +369,24 @@ export default function CustomerShowroom() {
               {filteredCars.map((car) => (
                 <Card key={car.id} className="group overflow-hidden hover:shadow-xl transition-all duration-300 border-0 shadow-md">
                   <div className="relative aspect-[4/3] bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-6xl opacity-50">{brandEmojis[car.brand] || "🚗"}</span>
-                    </div>
+                    {getCarImages(car.images).length > 0 ? (
+                      <img
+                        src={getCarImages(car.images)[0]}
+                        alt={`${car.brand} ${car.model}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-6xl opacity-50">{brandEmojis[car.brand] || "🚗"}</span>
+                      </div>
+                    )}
+                    {getCarImages(car.images).length > 1 && (
+                      <div className="absolute bottom-3 right-3">
+                        <Badge variant="secondary" className="bg-black/60 text-white border-0">
+                          📷 {getCarImages(car.images).length} รูป
+                        </Badge>
+                      </div>
+                    )}
                     <div className="absolute top-3 left-3 flex gap-2">
                       <Badge className="bg-green-500 hover:bg-green-600">พร้อมขาย</Badge>
                       {car.fuelType === "ไฮบริด" && (<Badge variant="secondary" className="bg-emerald-500 text-white hover:bg-emerald-600">ไฮบริด</Badge>)}
@@ -477,9 +513,63 @@ export default function CustomerShowroom() {
                 <DialogDescription>{selectedCar.year} • {selectedCar.color} • {selectedCar.plateNumber || "ทะเบียนใหม่"}</DialogDescription>
               </DialogHeader>
 
-              <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center">
-                <span className="text-8xl opacity-50">{brandEmojis[selectedCar.brand] || "🚗"}</span>
-              </div>
+              {(() => {
+                const imgs = getCarImages(selectedCar.images);
+                if (imgs.length > 0) {
+                  return (
+                    <div className="space-y-3">
+                      {/* Main Image */}
+                      <div className="relative aspect-video bg-slate-100 rounded-xl overflow-hidden">
+                        <img
+                          src={imgs[gallery.currentIndex]}
+                          alt={`${selectedCar.brand} ${selectedCar.model} - รูปที่ ${gallery.currentIndex + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {imgs.length > 1 && (
+                          <>
+                            <button
+                              onClick={() => gallery.prev(imgs.length)}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors"
+                            >
+                              ‹
+                            </button>
+                            <button
+                              onClick={() => gallery.next(imgs.length)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors"
+                            >
+                              ›
+                            </button>
+                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                              {gallery.currentIndex + 1} / {imgs.length}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      {/* Thumbnails */}
+                      {imgs.length > 1 && (
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                          {imgs.map((url, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => gallery.setCurrentIndex(idx)}
+                              className={`flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-colors ${
+                                idx === gallery.currentIndex ? "border-primary" : "border-transparent hover:border-muted-foreground/30"
+                              }`}
+                            >
+                              <img src={url} alt={`รูปที่ ${idx + 1}`} className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+                return (
+                  <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center">
+                    <span className="text-8xl opacity-50">{brandEmojis[selectedCar.brand] || "🚗"}</span>
+                  </div>
+                );
+              })()}
 
               <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl">
                 <div>
