@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { signOut } from "next-auth/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,8 @@ import {
   Car, Users, DollarSign, TrendingUp, Plus, Search, Edit, Trash2, 
   Phone, Mail, MapPin, Calendar, Gauge, Fuel, Settings,
   BarChart3, PieChart, Activity, ShoppingCart, FileText,
-  ArrowLeft, Home, Image as ImageIcon
+  ArrowLeft, Home, Image as ImageIcon, LogOut, ChevronUp, ChevronDown, ChevronsUpDown,
+  ChevronLeft, ChevronRight
 } from "lucide-react";
 import {
   BarChart,
@@ -161,6 +163,17 @@ export default function AdminDashboard() {
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [saleDialogOpen, setSaleDialogOpen] = useState(false);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  
+  // Sorting states
+  const [carSort, setCarSort] = useState<{ key: string; dir: "asc" | "desc" }>({ key: "createdAt", dir: "desc" });
+  const [customerSort, setCustomerSort] = useState<{ key: string; dir: "asc" | "desc" }>({ key: "createdAt", dir: "desc" });
+  const [saleSort, setSaleSort] = useState<{ key: string; dir: "asc" | "desc" }>({ key: "saleDate", dir: "desc" });
+  
+  // Pagination states
+  const [carPage, setCarPage] = useState(1);
+  const [customerPage, setCustomerPage] = useState(1);
+  const [salePage, setSalePage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   
   // Form states
   const [editingCar, setEditingCar] = useState<CarData | null>(null);
@@ -405,6 +418,67 @@ export default function AdminDashboard() {
     }
   };
 
+  // Sorting helper
+  const sortData = <T,>(data: T[], key: string, dir: "asc" | "desc"): T[] => {
+    return [...data].sort((a, b) => {
+      const aVal = key.includes(".") ? key.split(".").reduce((o: any, k) => o?.[k], a) : (a as any)[key];
+      const bVal = key.includes(".") ? key.split(".").reduce((o: any, k) => o?.[k], b) : (b as any)[key];
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+      if (typeof aVal === "number" && typeof bVal === "number") return dir === "asc" ? aVal - bVal : bVal - aVal;
+      return dir === "asc" ? String(aVal).localeCompare(String(bVal)) : String(bVal).localeCompare(String(aVal));
+    });
+  };
+
+  // Pagination helper
+  const paginate = <T,>(data: T[], page: number): T[] => {
+    const start = (page - 1) * ITEMS_PER_PAGE;
+    return data.slice(start, start + ITEMS_PER_PAGE);
+  };
+  const totalPages = (total: number) => Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
+
+  // Sorted & paginated data
+  const sortedCars = useMemo(() => sortData(cars, carSort.key, carSort.dir), [cars, carSort]);
+  const paginatedCars = useMemo(() => paginate(sortedCars, carPage), [sortedCars, carPage]);
+  const sortedCustomers = useMemo(() => sortData(customers, customerSort.key, customerSort.dir), [customers, customerSort]);
+  const paginatedCustomers = useMemo(() => paginate(sortedCustomers, customerPage), [sortedCustomers, customerPage]);
+  const sortedSales = useMemo(() => sortData(sales, saleSort.key, saleSort.dir), [sales, saleSort]);
+  const paginatedSales = useMemo(() => paginate(sortedSales, salePage), [sortedSales, salePage]);
+
+  // Sort toggle helper
+  const toggleSort = (current: { key: string; dir: "asc" | "desc" }, key: string, setter: (v: { key: string; dir: "asc" | "desc" }) => void) => {
+    if (current.key === key) {
+      setter({ key, dir: current.dir === "asc" ? "desc" : "asc" });
+    } else {
+      setter({ key, dir: "asc" });
+    }
+  };
+
+  // Sort icon
+  const SortIcon = ({ sortKey, current }: { sortKey: string; current: { key: string; dir: "asc" | "desc" } }) => {
+    if (current.key !== sortKey) return <ChevronsUpDown className="w-3 h-3 ml-1 opacity-40" />;
+    return current.dir === "asc" ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />;
+  };
+
+  // Pagination controls component
+  const PaginationControls = ({ page, total, setPage }: { page: number; total: number; setPage: (p: number) => void }) => {
+    const tp = totalPages(total);
+    return (
+      <div className="flex items-center justify-between px-4 py-3 border-t">
+        <p className="text-sm text-muted-foreground">แสดง {Math.min((page - 1) * ITEMS_PER_PAGE + 1, total)}-{Math.min(page * ITEMS_PER_PAGE, total)} จาก {total} รายการ</p>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <span className="text-sm font-medium">หน้า {page} / {tp}</span>
+          <Button variant="outline" size="sm" disabled={page >= tp} onClick={() => setPage(page + 1)}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   // Chart data
   const monthlySalesData = dashboard?.monthlySales
     ? Object.entries(dashboard.monthlySales).map(([month, data]) => ({
@@ -463,6 +537,10 @@ export default function AdminDashboard() {
                 <Activity className="w-3 h-3" />
                 Admin
               </Badge>
+              <Button variant="destructive" size="sm" className="gap-2" onClick={() => signOut({ callbackUrl: "/login" })}>
+                <LogOut className="w-4 h-4" />
+                ออกจากระบบ
+              </Button>
             </div>
           </div>
         </div>
@@ -861,22 +939,33 @@ export default function AdminDashboard() {
 
             <Card>
               <CardContent className="p-0">
-                <ScrollArea className="h-[calc(100vh-320px)]">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>รถยนต์</TableHead>
-                        <TableHead>ปี</TableHead>
-                        <TableHead>เลขไมล์</TableHead>
-                        <TableHead>ราคาทุน</TableHead>
-                        <TableHead>ราคาขาย</TableHead>
-                        <TableHead>สถานะ</TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(carSort, "brand", setCarSort)}>
+                          <span className="flex items-center">รถยนต์<SortIcon sortKey="brand" current={carSort} /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(carSort, "year", setCarSort)}>
+                          <span className="flex items-center">ปี<SortIcon sortKey="year" current={carSort} /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(carSort, "mileage", setCarSort)}>
+                          <span className="flex items-center">เลขไมล์<SortIcon sortKey="mileage" current={carSort} /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(carSort, "costPrice", setCarSort)}>
+                          <span className="flex items-center">ราคาทุน<SortIcon sortKey="costPrice" current={carSort} /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(carSort, "sellingPrice", setCarSort)}>
+                          <span className="flex items-center">ราคาขาย<SortIcon sortKey="sellingPrice" current={carSort} /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(carSort, "status", setCarSort)}>
+                          <span className="flex items-center">สถานะ<SortIcon sortKey="status" current={carSort} /></span>
+                        </TableHead>
                         <TableHead className="text-right">การจัดการ</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {cars.length > 0 ? (
-                        cars.map((car) => (
+                      {paginatedCars.length > 0 ? (
+                        paginatedCars.map((car) => (
                           <TableRow key={car.id}>
                             <TableCell>
                               <div>
@@ -946,7 +1035,7 @@ export default function AdminDashboard() {
                       )}
                     </TableBody>
                   </Table>
-                </ScrollArea>
+                <PaginationControls page={carPage} total={cars.length} setPage={setCarPage} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -1017,20 +1106,25 @@ export default function AdminDashboard() {
 
             <Card>
               <CardContent className="p-0">
-                <ScrollArea className="h-[calc(100vh-320px)]">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>ชื่อ</TableHead>
-                        <TableHead>เบอร์โทร</TableHead>
-                        <TableHead>อีเมล</TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(customerSort, "name", setCustomerSort)}>
+                          <span className="flex items-center">ชื่อ<SortIcon sortKey="name" current={customerSort} /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(customerSort, "phone", setCustomerSort)}>
+                          <span className="flex items-center">เบอร์โทร<SortIcon sortKey="phone" current={customerSort} /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(customerSort, "email", setCustomerSort)}>
+                          <span className="flex items-center">อีเมล<SortIcon sortKey="email" current={customerSort} /></span>
+                        </TableHead>
                         <TableHead>ที่อยู่</TableHead>
                         <TableHead className="text-right">การจัดการ</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {customers.length > 0 ? (
-                        customers.map((customer) => (
+                      {paginatedCustomers.length > 0 ? (
+                        paginatedCustomers.map((customer) => (
                           <TableRow key={customer.id}>
                             <TableCell className="font-medium">{customer.name}</TableCell>
                             <TableCell>{customer.phone}</TableCell>
@@ -1079,7 +1173,7 @@ export default function AdminDashboard() {
                       )}
                     </TableBody>
                   </Table>
-                </ScrollArea>
+                <PaginationControls page={customerPage} total={customers.length} setPage={setCustomerPage} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -1092,21 +1186,30 @@ export default function AdminDashboard() {
                 <CardDescription>รายการขายรถยนต์ทั้งหมด</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
-                <ScrollArea className="h-[calc(100vh-280px)]">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>วันที่</TableHead>
-                        <TableHead>รถยนต์</TableHead>
-                        <TableHead>ลูกค้า</TableHead>
-                        <TableHead>ราคาขาย</TableHead>
-                        <TableHead>กำไร</TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(saleSort, "saleDate", setSaleSort)}>
+                          <span className="flex items-center">วันที่<SortIcon sortKey="saleDate" current={saleSort} /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(saleSort, "car.brand", setSaleSort)}>
+                          <span className="flex items-center">รถยนต์<SortIcon sortKey="car.brand" current={saleSort} /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(saleSort, "customer.name", setSaleSort)}>
+                          <span className="flex items-center">ลูกค้า<SortIcon sortKey="customer.name" current={saleSort} /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(saleSort, "salePrice", setSaleSort)}>
+                          <span className="flex items-center">ราคาขาย<SortIcon sortKey="salePrice" current={saleSort} /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(saleSort, "profit", setSaleSort)}>
+                          <span className="flex items-center">กำไร<SortIcon sortKey="profit" current={saleSort} /></span>
+                        </TableHead>
                         <TableHead>ประเภทชำระ</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sales.length > 0 ? (
-                        sales.map((sale) => (
+                      {paginatedSales.length > 0 ? (
+                        paginatedSales.map((sale) => (
                           <TableRow key={sale.id}>
                             <TableCell>{formatDate(sale.saleDate)}</TableCell>
                             <TableCell>
@@ -1135,7 +1238,7 @@ export default function AdminDashboard() {
                       )}
                     </TableBody>
                   </Table>
-                </ScrollArea>
+                <PaginationControls page={salePage} total={sales.length} setPage={setSalePage} />
               </CardContent>
             </Card>
           </TabsContent>

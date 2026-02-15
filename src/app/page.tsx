@@ -246,7 +246,7 @@ const getCarImages = (images: string | null | undefined): string[] => {
             </nav>
 
             <div className="flex items-center gap-3">
-              <Link href="/admin">
+              <Link href="/login">
                 <Button variant="outline" size="sm" className="hidden sm:flex gap-2">
                   <User className="w-4 h-4" />
                   Admin
@@ -270,7 +270,7 @@ const getCarImages = (images: string | null | undefined): string[] => {
                 <a href="#cars" className="text-sm font-medium hover:text-primary" onClick={() => setMobileMenuOpen(false)}>รถยนต์ทั้งหมด</a>
                 <a href="#about" className="text-sm font-medium hover:text-primary" onClick={() => setMobileMenuOpen(false)}>เกี่ยวกับเรา</a>
                 <a href="#contact" className="text-sm font-medium hover:text-primary" onClick={() => setMobileMenuOpen(false)}>ติดต่อเรา</a>
-                <Link href="/admin" className="text-sm font-medium hover:text-primary" onClick={() => setMobileMenuOpen(false)}>Admin Panel</Link>
+                <Link href="/login" className="text-sm font-medium hover:text-primary" onClick={() => setMobileMenuOpen(false)}>Admin Panel</Link>
               </nav>
             </div>
           )}
@@ -498,7 +498,7 @@ const getCarImages = (images: string | null | undefined): string[] => {
               <span className="font-bold">รถมือสองคุณภาพ</span>
             </div>
             <p className="text-sm text-slate-400">© 2025 Car Dealer. All rights reserved.</p>
-            <Link href="/admin" className="text-sm text-slate-400 hover:text-white transition-colors">Admin Panel</Link>
+            <Link href="/login" className="text-sm text-slate-400 hover:text-white transition-colors">Admin Panel</Link>
           </div>
         </div>
       </footer>
